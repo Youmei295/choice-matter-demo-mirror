@@ -1,4 +1,4 @@
-name: HF → GitHub Sync (Production)
+name: HF → GitHub Sync (stable)
 
 on:
   workflow_dispatch: {}
@@ -16,27 +16,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure git identity
+      - name: Set git identity
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Clone Hugging Face snapshot (NO LFS)
+      - name: Clone Hugging Face repo
         env:
           HF_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           rm -rf hf_repo
+          git clone https://oauth2:${HF_TOKEN}@huggingface.co/spaces/Youmei295/choice-matter-demo.git hf_repo
 
-          git clone \
-            https://oauth2:${HF_TOKEN}@huggingface.co/spaces/Youmei295/choice-matter-demo.git \
-            hf_repo
-
-      - name: Sync files into GitHub repo (safe copy)
+      - name: Clean sync into workspace (safe copy)
         run: |
-          rsync -av --delete \
+          rm -rf sync_tmp
+          mkdir sync_tmp
+
+          rsync -a \
             --exclude='.git' \
-            --exclude='.github' \
-            hf_repo/ ./
+            hf_repo/ sync_tmp/
+
+      - name: Replace repo content safely
+        run: |
+          rsync -a \
+            --delete \
+            sync_tmp/ ./
 
       - name: Commit changes
         run: |
@@ -45,4 +50,4 @@ jobs:
 
       - name: Push to GitHub
         run: |
-          git push origin main
+          git push origin main --force
