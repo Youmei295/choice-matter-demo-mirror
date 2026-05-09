@@ -1,0 +1,22 @@
+name: Mirror to GitHub
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to GitHub mirror
+        run: |
+          git remote add mirror https://Youmei295:${{ secrets.token }}@github.com/Youmei295/choice-matter-demo-mirror.git
+          git push --force --all mirror
+          git push --force --tags mirror
