@@ -1,4 +1,4 @@
-name: Mirror from Hugging Face (LFS-safe)
+name: Mirror from Hugging Face (safe LFS-free GitHub)
 
 on:
   workflow_dispatch: {}
@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Git LFS (skip download of binaries)
+      - name: Disable LFS download (avoid broken assets crash)
         run: |
           git lfs install --skip-smudge
 
@@ -32,14 +32,21 @@ jobs:
           git -c http.extraHeader="Authorization: Bearer $HF_TOKEN" \
             fetch hf main --prune --tags --force
 
-      - name: Checkout HF branch safely
+      - name: Checkout HF content
         run: |
           git checkout -B hf_main hf/main
 
-      - name: Sync to GitHub main
+      - name: Switch to main branch
         run: |
           git checkout -B main hf_main
 
-      - name: Push to GitHub mirror
+      - name: Commit changes (skip if none)
+        run: |
+          git add -A
+          git commit -m "sync from huggingface" || echo "No changes"
+
+      - name: Push to GitHub (NO LFS upload)
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
         run: |
           git push origin main --force
