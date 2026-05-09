@@ -351,9 +351,14 @@ def build_status_panel(game_state):
         flags_display += "<span style='color: #9d4edd;'>◆ Ancient Knowledge</span><br>"
     
     html = f"""
-    <div style='font-family: "Courier New", monospace; color: #c9c9c9; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid #444;'>
-        <strong style='color: #ff6b6b;'>INVENTORY:</strong> {inventory_items}<br>
-        {flags_display}
+    <div class='status-panel'>
+        <div style='margin-bottom: 12px;'>
+            <span style='color: #ff6b6b; font-family: "Cinzel", serif; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;'>⚔ INVENTORY</span>
+            <div style='color: #e0e0e0; margin-top: 6px; font-size: 13px;'>{inventory_items}</div>
+        </div>
+        <div style='margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(157, 78, 221, 0.2);'>
+            {flags_display}
+        </div>
     </div>
     """
     return html
@@ -377,66 +382,190 @@ def restart_game():
 # PHASE 2 & 4: GRADIO UI WITH ATMOSPHERIC POLISH
 # ============================================================================
 
-# Custom CSS for dark, atmospheric styling
+# Custom CSS for premium dark fantasy UI/UX
 custom_css = """
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Fira+Code:wght@400;500&display=swap');
 
+/* Global styles with gradient background */
 body, .gradio-container {
-    background-color: #0a0a0a !important;
-    color: #c9c9c9 !important;
+    background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #0d0d0d 100%) !important;
+    color: #e0e0e0 !important;
     font-family: 'Fira Code', 'Courier New', monospace !important;
+    min-height: 100vh !important;
 }
 
 .contain {
-    background-color: #0a0a0a !important;
+    background: transparent !important;
 }
 
-/* Story text styling */
+/* Main container - glassmorphism effect */
+.main {
+    background: rgba(13, 13, 13, 0.85) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255, 107, 107, 0.15) !important;
+    border-radius: 12px !important;
+    margin: 20px !important;
+    padding: 25px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 60px rgba(255, 107, 107, 0.05) !important;
+}
+
+/* Story text styling with improved readability */
 .prose {
-    color: #c9c9c9 !important;
+    color: #e0e0e0 !important;
     font-family: 'Fira Code', monospace !important;
-    line-height: 1.8 !important;
+    line-height: 1.9 !important;
+    font-size: 15px !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
 .prose em {
-    color: #888 !important;
+    color: #9d4edd !important;
     font-style: italic !important;
 }
 
 .prose strong {
     color: #ff6b6b !important;
-    font-weight: bold !important;
+    font-weight: 600 !important;
+    text-shadow: 0 0 10px rgba(255, 107, 107, 0.3) !important;
 }
 
-/* Button styling - sharp, minimalist */
-button {
-    background: #1a1a1a !important;
-    border: 1px solid #444 !important;
-    border-radius: 0px !important;
-    color: #c9c9c9 !important;
-    font-family: 'Fira Code', monospace !important;
-    padding: 12px 24px !important;
-    transition: all 0.2s !important;
+/* Premium button styling with gradients */
+button.primary, button.lg {
+    background: linear-gradient(145deg, #1f1f2e 0%, #2a2a3e 100%) !important;
+    border: 1px solid #3a3a4e !important;
+    border-radius: 8px !important;
+    color: #e0e0e0 !important;
+    font-family: 'Cinzel', serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    padding: 14px 28px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+    position: relative !important;
+    overflow: hidden !important;
 }
 
-button:hover {
-    background: #2a2a2a !important;
+button.primary:hover, button.lg:hover {
+    background: linear-gradient(145deg, #2a2a3e 0%, #3a3a4e 100%) !important;
+    border-color: #ff6b6b !important;
+    color: #ff6b6b !important;
+    box-shadow: 0 6px 25px rgba(255, 107, 107, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    transform: translateY(-2px) !important;
+}
+
+button.primary:active, button.lg:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
+}
+
+button.secondary {
+    background: linear-gradient(145deg, #1a1a1a 0%, #252525 100%) !important;
+    border: 1px solid #333 !important;
+    border-radius: 8px !important;
+    color: #888 !important;
+    font-family: 'Cinzel', serif !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    padding: 10px 20px !important;
+    transition: all 0.3s ease !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+}
+
+button.secondary:hover {
+    background: linear-gradient(145deg, #252525 0%, #333 100%) !important;
     border-color: #ff6b6b !important;
     color: #ff6b6b !important;
 }
 
-/* Image container */
-.image-container img {
-    border: 1px solid #333 !important;
-    border-radius: 0px !important;
+/* Image container with premium border */
+.image-container {
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 40px rgba(157, 78, 221, 0.1) !important;
+    border: 1px solid rgba(157, 78, 221, 0.2) !important;
 }
 
-/* Headers */
-h1, h2, h3 {
+.image-container img {
+    border-radius: 10px !important;
+    display: block !important;
+}
+
+/* Headers with cinematic styling */
+h1 {
     color: #ff6b6b !important;
-    font-family: 'Fira Code', monospace !important;
+    font-family: 'Cinzel', serif !important;
+    text-transform: uppercase !important;
+    letter-spacing: 4px !important;
+    font-size: 28px !important;
+    text-shadow: 0 0 20px rgba(255, 107, 107, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+    margin-bottom: 5px !important;
+}
+
+h2, h3 {
+    color: #9d4edd !important;
+    font-family: 'Cinzel', serif !important;
     text-transform: uppercase !important;
     letter-spacing: 2px !important;
+    text-shadow: 0 0 15px rgba(157, 78, 221, 0.3) !important;
+}
+
+/* Status panel glassmorphism */
+.status-panel {
+    background: rgba(20, 20, 30, 0.7) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(157, 78, 221, 0.2) !important;
+    border-radius: 10px !important;
+    padding: 15px !important;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Divider styling */
+hr {
+    border: none !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, transparent, rgba(255, 107, 107, 0.3), transparent) !important;
+    margin: 20px 0 !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px !important;
+}
+
+::-webkit-scrollbar-track {
+    background: #0d0d0d !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #3a3a4e, #2a2a3e) !important;
+    border-radius: 4px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #4a4a5e, #3a3a4e) !important;
+}
+
+/* Animation for text fade-in */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out !important;
+}
+
+/* Subtle pulse animation for important elements */
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(255, 107, 107, 0.2); }
+    50% { box-shadow: 0 0 30px rgba(255, 107, 107, 0.4); }
+}
+
+.pulse {
+    animation: pulse-glow 3s ease-in-out infinite !important;
 }
 """
 
@@ -445,9 +574,17 @@ with gr.Blocks(css=custom_css, title="Choice Matter - Dark Fantasy", theme=gr.th
     # Game state
     game_state = gr.State(initialize_state())
     
-    # Header
-    gr.Markdown("# ⬛ CHOICE MATTER ⬛")
-    gr.Markdown("*A dark fantasy where every decision shapes your fate*")
+    # Header with enhanced styling
+    gr.HTML("""
+    <div style='text-align: center; padding: 20px 0 10px 0;'>
+        <h1 style='color: #ff6b6b; font-family: "Cinzel", serif; text-transform: uppercase; letter-spacing: 6px; font-size: 32px; margin: 0; text-shadow: 0 0 30px rgba(255, 107, 107, 0.5), 0 3px 6px rgba(0, 0, 0, 0.9);'>
+            ⬛ CHOICE MATTER ⬛
+        </h1>
+        <p style='color: #9d4edd; font-family: "Cinzel", serif; font-style: italic; font-size: 14px; letter-spacing: 3px; margin-top: 8px; text-shadow: 0 0 15px rgba(157, 78, 221, 0.4);'>
+            A dark fantasy where every decision shapes your fate
+        </p>
+    </div>
+    """)
     
     with gr.Row():
         # Left column - Visual stage and status
@@ -468,9 +605,15 @@ with gr.Blocks(css=custom_css, title="Choice Matter - Dark Fantasy", theme=gr.th
                 container=True
             )
             
-            gr.Markdown("---")
+            gr.HTML("<div style='height: 15px;'></div>")
             
-            # Choice buttons
+            # Choice buttons section with enhanced styling
+            gr.HTML("""
+            <div style='margin-bottom: 15px;'>
+                <span style='color: #9d4edd; font-family: "Cinzel", serif; font-size: 11px; text-transform: uppercase; letter-spacing: 3px; opacity: 0.7;'>CHOOSE YOUR PATH</span>
+            </div>
+            """)
+            
             with gr.Column():
                 choice_btn_1 = gr.Button(
                     SCENES["start"]["choices"][0][0],
@@ -488,9 +631,9 @@ with gr.Blocks(css=custom_css, title="Choice Matter - Dark Fantasy", theme=gr.th
                     size="lg"
                 )
             
-            gr.Markdown("---")
+            gr.HTML("<div style='height: 20px;'></div>")
             
-            # Restart button
+            # Restart button with icon
             restart_btn = gr.Button("↻ NEW GAME", variant="secondary")
     
     # Wire up event handlers
