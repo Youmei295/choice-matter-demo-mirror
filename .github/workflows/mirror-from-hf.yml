@@ -1,0 +1,35 @@
+name: Mirror from Hugging Face
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # run every hour (adjust as needed)
+    - cron: '0 * * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (mirror repo)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch from Hugging Face space
+        env:
+          HF_TOKEN: ${{ secrets.token }}
+        run: |
+          # Add HF remote (do not echo HF_TOKEN). Use the canonical HF repo URL:
+          git remote add hf https://huggingface.co/spaces/Youmei295/choice-matter-demo.git
+
+          # Fetch everything from HF using an Authorization header (does not leak token to logs)
+          git -c http.extraHeader="Authorization: Bearer $HF_TOKEN" fetch hf --prune --tags --force --no-recurse-submodules
+
+      - name: Mirror to origin (push fetched refs into GitHub repo)
+        run: |
+          # Note: origin is the GitHub mirror repo (checked out by actions/checkout)
+          # --mirror will make origin match the HF repo exactly (including deletions)
+          git push --mirror --force origin
