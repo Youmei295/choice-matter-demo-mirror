@@ -1,4 +1,4 @@
-name: Mirror from Hugging Face (no LFS)
+name: Mirror from Hugging Face (stable no-LFS)
 
 on:
   workflow_dispatch: {}
@@ -18,13 +18,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: FULL disable Git LFS
+      - name: FULL disable Git LFS (critical fix)
         run: |
           git lfs uninstall || true
+
           git config --global filter.lfs.clean ""
           git config --global filter.lfs.smudge ""
           git config --global filter.lfs.process ""
           git config --global filter.lfs.required false
+
+          git config --global lfs.allowincompletepush true
 
       - name: Fetch from Hugging Face
         env:
@@ -40,15 +43,11 @@ jobs:
         run: |
           git checkout -B main hf/main
 
-      - name: Remove LFS tracking files
-        run: |
-          rm -f .gitattributes || true
-
-      - name: Commit sync
+      - name: Commit sync safely
         run: |
           git add -A
           git commit -m "sync from huggingface (no LFS)" || echo "no changes"
 
-      - name: Push to GitHub
+      - name: Push to GitHub (LFS bypassed)
         run: |
           git push origin main --force
