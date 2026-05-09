@@ -1,0 +1,53 @@
+name: Mirror from Hugging Face (safe)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 * * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GitHub mirror repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch from Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          git remote remove hf || true
+          git remote add hf https://huggingface.co/spaces/Youmei295/choice-matter-demo.git
+
+          git -c http.extraHeader="Authorization: Bearer $HF_TOKEN" \
+            fetch hf main --prune --tags --force
+
+      - name: Checkout HF content into temp branch
+        run: |
+          git checkout -B hf_main hf/main
+
+      - name: Preserve GitHub workflows
+        run: |
+          git checkout origin/main -- .github/workflows || true
+
+      - name: Merge HF content safely
+        run: |
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='.github/workflows' \
+            ./ ./ 
+
+      - name: Commit changes (if any)
+        run: |
+          git add -A
+          git commit -m "sync from huggingface" || echo "No changes to commit"
+
+      - name: Push to GitHub (safe)
+        run: |
+          git push origin main
