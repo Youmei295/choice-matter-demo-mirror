@@ -1,251 +1,528 @@
 import gradio as gr
+import json
+import os
 
-# Story graph - each node has text and choices leading to other nodes
-story_graph = {
+# ============================================================================
+# PHASE 1: STATE MANAGEMENT & SCENE ARCHITECTURE
+# ============================================================================
+
+# Scene database - each scene contains narrative text, image, and available choices
+SCENES = {
     "start": {
-        "text": """# The Enchanted Forest
+        "text": """*You awaken in a dimly lit chamber. Stone walls press close around you, and the air tastes of ancient dust.*
 
-You wake up at the edge of a mysterious forest. The trees tower above you, their leaves shimmering with an otherworldly glow. 
-
-A worn path leads deeper into the woods, while to your right, you notice smoke rising from what might be a village.
-
-What do you do?""",
+The only light comes from a faint glow emanating from a doorway to the north. To your left, you notice something glinting in the shadows.""",
+        "image": "assets/crystal_chamber.png",
         "choices": [
-            ("Follow the path into the forest", "forest_path"),
-            ("Head towards the village", "village"),
-            ("Search the area for clues", "search_area")
+            ("Investigate the glinting object", "examine_object", None),
+            ("Head through the northern doorway", "village_entrance", None),
+            ("Search the chamber thoroughly", "search_chamber", None),
         ]
     },
-    "forest_path": {
-        "text": """# Deep in the Woods
+    
+    "examine_object": {
+        "text": """*You approach the shadows carefully. Your fingers close around cold metal—an ancient key, its surface etched with strange runes.*
 
-You venture down the forest path. The air grows cooler and the light dims as the canopy thickens above you.
+**[Key added to inventory]**
 
-Suddenly, you hear a rustling in the bushes. A small, glowing creature emerges - it looks like a fairy!
-
-The fairy gestures for you to follow, then points at a glowing mushroom circle nearby.
-
-What do you do?""",
+The key pulses with a faint warmth. Something tells you it will be important.""",
+        "image": "assets/crystal_chamber.png",
         "choices": [
-            ("Follow the fairy", "fairy_realm"),
-            ("Step into the mushroom circle", "mushroom_portal"),
-            ("Continue down the path alone", "deep_forest")
+            ("Take the key and head north", "village_entrance", "add_key"),
+            ("Examine the runes more closely", "study_runes", "add_key"),
+            ("Return to the center of the chamber", "start", "add_key"),
         ]
     },
-    "village": {
-        "text": """# The Village
+    
+    "search_chamber": {
+        "text": """*You methodically search every corner of the chamber. Behind a loose stone, you discover a small vial containing a luminescent liquid.*
 
-You arrive at a small village. The inhabitants eye you with curiosity. An old woman approaches you.
+**[Potion added to inventory]**
 
-"Traveler," she says, "we've been expecting you. The forest has been acting strange. Will you help us?"
-
-What do you do?""",
+The liquid swirls with its own inner light. It might restore your strength when needed.""",
+        "image": "assets/crystal_chamber.png",
         "choices": [
-            ("Agree to help the village", "help_village"),
-            ("Ask for more information first", "ask_info"),
-            ("Politely decline and leave", "forest_path")
+            ("Pocket the potion and continue north", "village_entrance", "add_potion"),
+            ("Drink the potion immediately", "drink_potion", "add_potion"),
+            ("Leave the potion and head north", "village_entrance", None),
         ]
     },
-    "search_area": {
-        "text": """# The Discovery
+    
+    "study_runes": {
+        "text": """*You trace the runes with your fingertips. Ancient knowledge floods your mind—these symbols speak of a great seal, and a darkness that was bound long ago.*
 
-You search the area carefully and find an old, weathered journal half-buried in the dirt.
+**[You have gained forbidden knowledge]**
 
-Inside, you read: "The forest holds ancient magic. Those who seek with pure intent shall find the Crystal of Light."
-
-You also find a small silver compass that seems to point toward the forest.
-
-What do you do?""",
+The key grows warmer in your hand. You sense it's connected to something powerful.""",
+        "image": "assets/crystal_chamber.png",
         "choices": [
-            ("Follow the compass into the forest", "forest_path"),
-            ("Take the journal to the village for answers", "village"),
-            ("Keep searching for more clues", "hidden_cave")
+            ("Proceed north with newfound understanding", "village_entrance", "learn_runes"),
+            ("Meditate on the vision", "meditate", "learn_runes"),
         ]
     },
-    "fairy_realm": {
-        "text": """# The Fairy Realm
+    
+    "village_entrance": {
+        "text": """*You emerge into the cool night air. Before you lies a village shrouded in mist, its windows glowing with warm candlelight.*
 
-The fairy leads you through a shimmering veil between the trees. You find yourself in a magical realm filled with floating lights and crystalline structures.
-
-The Fairy Queen appears before you. "You have a pure heart," she says. "I grant you the gift of forest speech. Use it wisely."
-
-**You have gained the ability to communicate with all forest creatures!**
-
-This is a good ending - you've been blessed by the fairies!""",
+An old woman stands at the village gate, her eyes sharp despite her age. She seems to have been waiting for you.""",
+        "image": "assets/village_twilight.png",
         "choices": [
-            ("Start a new adventure", "start")
+            ("Approach the old woman", "meet_elder", None),
+            ("Sneak around the village perimeter", "sneak_path", None),
+            ("Call out to announce your presence", "announce_self", None),
         ]
     },
-    "mushroom_portal": {
-        "text": """# The Portal
 
-You step into the mushroom circle. The world spins around you!
-
-When your vision clears, you find yourself back at the edge of the forest, but something feels different. You notice you're glowing faintly.
-
-**You've been touched by forest magic, but you're not sure what it means...**
-
-This is a mysterious ending - your adventure continues!""",
+    "tavern": {
+        "text": """*The tavern is warm and bustling. Patrons share tales over mugs of frothy ale. The innkeeper eyes you curiously.*\n\n\"What can I do for you, traveler?\"""",
+        "image": "assets/tavern_interior.png",
         "choices": [
-            ("Start a new adventure", "start")
+            ("Ask about rumors", "tavern_rumors", None),
+            ("Accept a quest to find the lost amulet", "accept_amulet_quest", "start_quest"),
+            ("Leave the tavern", "village_entrance", None),
         ]
     },
-    "deep_forest": {
-        "text": """# Lost in the Woods
-
-You continue alone, but the path becomes increasingly difficult to follow. The forest grows darker and more confusing.
-
-After hours of wandering, you realize you're completely lost. As night falls, you hear howling in the distance...
-
-**You got lost in the enchanted forest. Perhaps you should have accepted help?**
-
-This is a bad ending - try making different choices!""",
+    "tavern_rumors": {
+        "text": """*The innkeeper leans in.*\n\n\"There's talk of an ancient amulet hidden in a forgotten cave beyond the forest. Few have returned...\"""",
+        "image": "assets/tavern_interior.png",
         "choices": [
-            ("Start a new adventure", "start")
+            ("Leave the tavern", "village_entrance", None),
         ]
     },
-    "help_village": {
-        "text": """# The Hero's Path
-
-You agree to help. The old woman leads you to the village elder, who tells you about a dark presence corrupting the forest's heart.
-
-She gives you a blessed amulet and a map to the Crystal of Light, which can purify the corruption.
-
-Armed with knowledge and tools, you set off on your quest!
-
-**You've become the village's champion! Your heroic journey begins!**
-
-This is a good ending - you've found your purpose!""",
+    "accept_amulet_quest": {
+        "text": """*The innkeeper smiles and hands you a rough map.*\n\n\"Find the amulet and bring it back, and I'll reward you handsomely.\"""",
+        "image": "assets/tavern_interior.png",
         "choices": [
-            ("Start a new adventure", "start")
+            ("Head into the forest", "forest_entrance", "start_quest"),
         ]
     },
-    "ask_info": {
-        "text": """# Knowledge is Power
-
-The old woman explains that the forest's magic has been growing unstable. Strange creatures have appeared, and the ancient trees are withering.
-
-She mentions that a Crystal of Light, hidden deep in the forest, might be the key to restoring balance.
-
-She offers you supplies and a map if you'll help.
-
-What do you do?""",
+    
+    "tavern": {
+        "text": """*The tavern is warm and bustling. Patrons share tales over mugs of frothy ale. The innkeeper eyes you curiously.*\n\n\"What can I do for you, traveler?\"""",
+        "image": "assets/tavern_interior.png",
         "choices": [
-            ("Accept the quest with the supplies", "help_village"),
-            ("Venture into the forest alone", "forest_path"),
-            ("Decline and explore elsewhere", "search_area")
+            ("Ask about rumors", "tavern_rumors", None),
+            ("Accept a quest to find the lost amulet", "accept_amulet_quest", "start_quest"),
+            ("Leave the tavern", "village_entrance", None),
         ]
     },
-    "hidden_cave": {
-        "text": """# The Hidden Cave
-
-Your thorough search reveals a hidden cave entrance behind some vines. Inside, you find ancient carvings and a pedestal with a glowing crystal.
-
-As you approach, the crystal pulses with light. A voice echoes: "Seeker of truth, you have found the Crystal of Light through your own determination."
-
-**You've discovered the legendary Crystal of Light on your own! You are a true explorer!**
-
-This is the best ending - you've achieved greatness through your own efforts!""",
+    "tavern_rumors": {
+        "text": """*The innkeeper leans in.*\n\n\"There's talk of an ancient amulet hidden in a forgotten cave beyond the forest. Few have returned...\"""",
+        "image": "assets/tavern_interior.png",
         "choices": [
-            ("Start a new adventure", "start")
+            ("Leave the tavern", "village_entrance", None),
         ]
-    }
+    },
+    "accept_amulet_quest": {
+        "text": """*The innkeeper smiles and hands you a rough map.*\n\n\"Find the amulet and bring it back, and I'll reward you handsomely.\"""",
+        "image": "assets/tavern_interior.png",
+        "choices": [
+            ("Head into the forest", "forest_entrance", "start_quest"),
+        ]
+    },
+    "meet_elder": {
+        "text": """*The old woman's eyes widen as she sees you.*
+
+"So, the chamber has released another seeker," she whispers. "The forest grows restless. Dark things stir in the deep woods. Will you help us, traveler?"
+
+*Her gaze lingers on your hands, as if she can sense what you carry.*""",
+        "image": "assets/village_twilight.png",
+        "choices": [
+            ("Agree to help the village", "accept_quest", None),
+            ("Ask what threatens the village", "learn_threat", None),
+            ("Politely decline and move on", "refuse_quest", None),
+        ]
+    },
+    
+    "accept_quest": {
+        "text": """*The elder's face softens with relief.*
+
+"Thank you, brave soul. The darkness emanates from the heart of the forest. Take this—it will light your way."
+
+**[Lantern added to inventory]**
+
+*She hands you an ornate lantern that burns with cold, blue flame.*
+
+"Follow the old path. And beware—the forest remembers everything.""",
+        "image": "assets/village_twilight.png",
+        "choices": [
+            ("Enter the forest immediately", "forest_entrance", "add_lantern"),
+            ("Rest in the village first", "rest_village", "add_lantern"),
+            ("Ask for more information", "learn_threat", "add_lantern"),
+        ]
+    },
+    
+    "forest_entrance": {
+        "text": """*The forest looms before you, ancient and watchful. Bioluminescent mushrooms cast an eerie glow along the path.*
+
+The trees seem to whisper secrets in a language you almost understand. Your lantern flickers, responding to some unseen presence.""",
+        "image": "assets/forest_entrance.png",
+        "choices": [
+            ("Follow the mushroom-lit path", "mushroom_path", None),
+            ("Use your lantern to find another way", "lantern_path", None),
+            ("Listen to the whispers", "forest_whispers", None),
+        ]
+    },
+    
+    "mushroom_path": {
+        "text": """*You follow the glowing fungi deeper into the woods. The path spirals inward, and you realize too late that you're walking in circles.*
+
+*The mushrooms' glow intensifies, and strange visions fill your mind...*
+
+**[You have become lost in the enchanted forest]**
+
+*Perhaps you should have been more cautious.*""",
+        "image": "assets/forest_entrance.png",
+        "choices": [
+            ("Start over", "start", "reset"),
+        ]
+    },
+    
+    "lantern_path": {
+        "text": """*You raise your lantern high. Its blue flame burns brighter, revealing a hidden trail that cuts through the undergrowth.*
+
+*As you walk, the lantern's light seems to push back the darkness itself. You feel you're getting closer to the source of the corruption.*
+
+**[You have found the true path]**""",
+        "image": "assets/forest_entrance.png",
+        "choices": [
+            ("Continue deeper into the forest", "forest_heart", None),
+            ("Mark the path and return to the village", "return_village", None),
+        ]
+    },
+    
+    "forest_heart": {
+        "text": """*You reach a clearing where an ancient stone altar stands. Dark energy pulses from a crack in its surface.*
+
+*If you have the key, you could seal this corruption. If you have the knowledge, you could understand it. If you have neither... you may not survive.*""",
+        "image": "assets/crystal_chamber.png",
+        "choices": [
+            ("Use the ancient key (if you have it)", "seal_darkness", "check_key"),
+            ("Apply your runic knowledge (if you learned it)", "understand_darkness", "check_runes"),
+            ("Attempt to destroy the altar by force", "force_solution", None),
+        ]
+    },
+    
+    "seal_darkness": {
+        "text": """*You insert the ancient key into the altar. The runes on the key blaze with golden light, and the crack begins to seal.*
+
+*The darkness screams as it's forced back into its prison. The forest sighs with relief, and new growth springs up around you.*
+
+**[VICTORY: You have sealed the darkness and saved the village]**
+
+*The elder's faith in you was well-placed. You are a true hero.*""",
+        "image": "assets/crystal_chamber.png",
+        "choices": [
+            ("Begin a new journey", "start", "reset"),
+        ]
+    },
+    
+    "understand_darkness": {
+        "text": """*You speak the ancient words you learned from the runes. The darkness responds, and you realize—it was never evil, only imprisoned and afraid.*
+
+*You negotiate a pact: the darkness will sleep peacefully if the village remembers to honor it with offerings. Balance is restored.*
+
+**[WISDOM ENDING: You have brought understanding and peace]**
+
+*Sometimes the greatest victories come not from force, but from compassion.*""",
+        "image": "assets/forest_entrance.png",
+        "choices": [
+            ("Begin a new journey", "start", "reset"),
+        ]
+    },
+    
+    "force_solution": {
+        "text": """*You strike the altar with all your might. The stone cracks—but so does the seal.*
+
+*Darkness explodes outward, consuming everything. You hear the village's screams in the distance as shadows swallow the world.*
+
+**[FAILURE: Your recklessness has doomed everyone]**
+
+*Some problems cannot be solved with brute force.*""",
+        "image": "assets/crystal_chamber.png",
+        "choices": [
+            ("Try again", "start", "reset"),
+        ]
+    },
+    
+    "drink_potion": {
+        "text": """*You uncork the vial and drink deeply. Power surges through your veins!*
+
+**[You feel invincible... but at what cost?]**
+
+*The chamber begins to spin. Perhaps drinking unknown potions wasn't wise.*""",
+        "image": "assets/crystal_chamber.png",
+        "choices": [
+            ("Try to stay conscious", "potion_effect", None),
+            ("Embrace the darkness", "start", "reset"),
+        ]
+    },
 }
 
-def get_story_content(node_id):
-    """Get the story text and choices for a given node."""
-    node = story_graph.get(node_id, story_graph["start"])
-    return node["text"], node["choices"]
+def initialize_state():
+    """Create a fresh game state"""
+    return {
+        "scene_id": "start",
+        "inventory": [],
+        "flags": {},
+        "quests": []
+    }
 
-def make_choice(node_id, choice_idx):
-    """Process a choice and return updated UI state."""
-    node = story_graph.get(node_id, story_graph["start"])
+# ============================================================================
+# PHASE 3: THE LOGIC BRIDGE - Core game engine
+# ============================================================================
+
+def handle_action(choice_text, game_state):
+    """
+    Process player choice and return updated UI components.
+    Returns: (story_text, image, status_html, btn1_update, btn2_update, btn3_update, new_state)
+    """
+    if game_state is None:
+        game_state = initialize_state()
     
-    if choice_idx < len(node["choices"]):
-        next_node_id = node["choices"][choice_idx][1]
-    else:
-        next_node_id = "start"
+    current_scene = SCENES.get(game_state["scene_id"], SCENES["start"])
     
-    text, choices = get_story_content(next_node_id)
+    # Find which choice was selected
+    next_scene_id = None
+    action = None
     
-    # Prepare button updates (text and visibility)
+    for choice_label, scene_id, choice_action in current_scene["choices"]:
+        if choice_label == choice_text:
+            next_scene_id = scene_id
+            action = choice_action
+            break
+    
+    # If no match found (shouldn't happen), stay in current scene
+    if next_scene_id is None:
+        next_scene_id = game_state["scene_id"]
+    
+    # Execute action (modify inventory/flags)
+    if action == "add_key":
+        if "key" not in game_state["inventory"]:
+            game_state["inventory"].append("key")
+    elif action == "add_potion":
+        if "potion" not in game_state["inventory"]:
+            game_state["inventory"].append("potion")
+    elif action == "add_lantern":
+        if "lantern" not in game_state["inventory"]:
+            game_state["inventory"].append("lantern")
+    elif action == "learn_runes":
+        game_state["flags"]["knows_runes"] = True
+    elif action == "check_key":
+        if "key" not in game_state["inventory"]:
+            # Player doesn't have key, redirect to failure
+            next_scene_id = "force_solution"
+    elif action == "check_runes":
+        if not game_state["flags"].get("knows_runes", False):
+            # Player doesn't have knowledge, redirect to failure
+            next_scene_id = "force_solution"
+    elif action == "reset":
+        game_state = initialize_state()
+        next_scene_id = "start"
+    
+    # Update scene
+    game_state["scene_id"] = next_scene_id
+    next_scene = SCENES.get(next_scene_id, SCENES["start"])
+    
+    # Prepare UI updates
+    story_text = next_scene["text"]
+    image_path = next_scene["image"]
+    
+    # Build status panel HTML
+    status_html = build_status_panel(game_state)
+    
+    # Update buttons
     button_updates = []
-    for i in range(4):  # We have 4 buttons
-        if i < len(choices):
-            button_updates.append(gr.update(value=choices[i][0], visible=True))
+    for i in range(3):
+        if i < len(next_scene["choices"]):
+            choice_label = next_scene["choices"][i][0]
+            button_updates.append(gr.update(value=choice_label, visible=True))
         else:
             button_updates.append(gr.update(visible=False))
     
-    return [text, next_node_id] + button_updates
+    return story_text, image_path, status_html, *button_updates, game_state
+
+def build_status_panel(game_state):
+    """Generate HTML for the status panel"""
+    inventory_items = ", ".join(game_state["inventory"]) if game_state["inventory"] else "Empty"
+    
+    flags_display = ""
+    if game_state["flags"].get("knows_runes"):
+        flags_display += "<span style='color: #9d4edd;'>◆ Ancient Knowledge</span><br>"
+    
+    html = f"""
+    <div style='font-family: "Courier New", monospace; color: #c9c9c9; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid #444;'>
+        <strong style='color: #ff6b6b;'>INVENTORY:</strong> {inventory_items}<br>
+        {flags_display}
+    </div>
+    """
+    return html
 
 def restart_game():
-    """Restart the game from the beginning."""
-    text, choices = get_story_content("start")
+    """Reset the game to initial state"""
+    game_state = initialize_state()
+    scene = SCENES["start"]
+    status_html = build_status_panel(game_state)
     
     button_updates = []
-    for i in range(4):
-        if i < len(choices):
-            button_updates.append(gr.update(value=choices[i][0], visible=True))
+    for i in range(3):
+        if i < len(scene["choices"]):
+            button_updates.append(gr.update(value=scene["choices"][i][0], visible=True))
         else:
             button_updates.append(gr.update(visible=False))
     
-    return [text, "start"] + button_updates
+    return scene["text"], scene["image"], status_html, *button_updates, game_state
 
-# Create the Gradio interface
-with gr.Blocks(title="Choice Matter - Interactive Story Game", theme=gr.themes.Soft()) as demo:
-    # State to track current node
-    current_node = gr.State("start")
+# ============================================================================
+# PHASE 2 & 4: GRADIO UI WITH ATMOSPHERIC POLISH
+# ============================================================================
+
+# Custom CSS for dark, atmospheric styling
+custom_css = """
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
+body, .gradio-container {
+    background-color: #0a0a0a !important;
+    color: #c9c9c9 !important;
+    font-family: 'Fira Code', 'Courier New', monospace !important;
+}
+
+.contain {
+    background-color: #0a0a0a !important;
+}
+
+/* Story text styling */
+.prose {
+    color: #c9c9c9 !important;
+    font-family: 'Fira Code', monospace !important;
+    line-height: 1.8 !important;
+}
+
+.prose em {
+    color: #888 !important;
+    font-style: italic !important;
+}
+
+.prose strong {
+    color: #ff6b6b !important;
+    font-weight: bold !important;
+}
+
+/* Button styling - sharp, minimalist */
+button {
+    background: #1a1a1a !important;
+    border: 1px solid #444 !important;
+    border-radius: 0px !important;
+    color: #c9c9c9 !important;
+    font-family: 'Fira Code', monospace !important;
+    padding: 12px 24px !important;
+    transition: all 0.2s !important;
+}
+
+button:hover {
+    background: #2a2a2a !important;
+    border-color: #ff6b6b !important;
+    color: #ff6b6b !important;
+}
+
+/* Image container */
+.image-container img {
+    border: 1px solid #333 !important;
+    border-radius: 0px !important;
+}
+
+/* Headers */
+h1, h2, h3 {
+    color: #ff6b6b !important;
+    font-family: 'Fira Code', monospace !important;
+    text-transform: uppercase !important;
+    letter-spacing: 2px !important;
+}
+"""
+
+# Build the Gradio interface
+with gr.Blocks(css=custom_css, title="Choice Matter - Dark Fantasy", theme=gr.themes.Base()) as demo:
+    # Game state
+    game_state = gr.State(initialize_state())
     
     # Header
-    gr.Markdown("# 🎮 Choice Matter: The Enchanted Forest")
-    gr.Markdown("*An interactive story where your choices shape your destiny*")
-    
-    # Story display
-    story_text = gr.Markdown(story_graph["start"]["text"])
-    
-    # Choice buttons (create 4 buttons, hide unused ones)
-    with gr.Row():
-        choice_btn_1 = gr.Button(story_graph["start"]["choices"][0][0], variant="primary", size="lg")
-        choice_btn_2 = gr.Button(story_graph["start"]["choices"][1][0], variant="primary", size="lg")
+    gr.Markdown("# ⬛ CHOICE MATTER ⬛")
+    gr.Markdown("*A dark fantasy where every decision shapes your fate*")
     
     with gr.Row():
-        choice_btn_3 = gr.Button(story_graph["start"]["choices"][2][0], variant="primary", size="lg")
-        choice_btn_4 = gr.Button("", visible=False, variant="primary", size="lg")
+        # Left column - Visual stage and status
+        with gr.Column(scale=1):
+            scene_image = gr.Image(
+                value=SCENES["start"]["image"],
+                label="",
+                show_label=False,
+                container=False,
+                height=400
+            )
+            status_panel = gr.HTML(build_status_panel(initialize_state()))
+        
+        # Right column - Narrative and controls
+        with gr.Column(scale=1):
+            story_text = gr.Markdown(
+                SCENES["start"]["text"],
+                container=True
+            )
+            
+            gr.Markdown("---")
+            
+            # Choice buttons
+            with gr.Column():
+                choice_btn_1 = gr.Button(
+                    SCENES["start"]["choices"][0][0],
+                    variant="primary",
+                    size="lg"
+                )
+                choice_btn_2 = gr.Button(
+                    SCENES["start"]["choices"][1][0],
+                    variant="primary",
+                    size="lg"
+                )
+                choice_btn_3 = gr.Button(
+                    SCENES["start"]["choices"][2][0],
+                    variant="primary",
+                    size="lg"
+                )
+            
+            gr.Markdown("---")
+            
+            # Restart button
+            restart_btn = gr.Button("↻ NEW GAME", variant="secondary")
     
-    # Restart button
-    with gr.Row():
-        restart_btn = gr.Button("🔄 Restart Game", variant="secondary")
+    # Wire up event handlers
+    outputs = [story_text, scene_image, status_panel, choice_btn_1, choice_btn_2, choice_btn_3, game_state]
     
-    # Wire up the buttons
     choice_btn_1.click(
-        fn=lambda node: make_choice(node, 0),
-        inputs=[current_node],
-        outputs=[story_text, current_node, choice_btn_1, choice_btn_2, choice_btn_3, choice_btn_4]
+        fn=lambda state: handle_action(choice_btn_1.value, state),
+        inputs=[game_state],
+        outputs=outputs
     )
     
     choice_btn_2.click(
-        fn=lambda node: make_choice(node, 1),
-        inputs=[current_node],
-        outputs=[story_text, current_node, choice_btn_1, choice_btn_2, choice_btn_3, choice_btn_4]
+        fn=lambda state: handle_action(choice_btn_2.value, state),
+        inputs=[game_state],
+        outputs=outputs
     )
     
     choice_btn_3.click(
-        fn=lambda node: make_choice(node, 2),
-        inputs=[current_node],
-        outputs=[story_text, current_node, choice_btn_1, choice_btn_2, choice_btn_3, choice_btn_4]
-    )
-    
-    choice_btn_4.click(
-        fn=lambda node: make_choice(node, 3),
-        inputs=[current_node],
-        outputs=[story_text, current_node, choice_btn_1, choice_btn_2, choice_btn_3, choice_btn_4]
+        fn=lambda state: handle_action(choice_btn_3.value, state),
+        inputs=[game_state],
+        outputs=outputs
     )
     
     restart_btn.click(
         fn=restart_game,
         inputs=[],
-        outputs=[story_text, current_node, choice_btn_1, choice_btn_2, choice_btn_3, choice_btn_4]
+        outputs=outputs
     )
+
+# ============================================================================
+# PHASE 5: DEPLOYMENT
+# ============================================================================
 
 if __name__ == "__main__":
     demo.launch()
