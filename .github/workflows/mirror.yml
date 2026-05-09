@@ -1,4 +1,4 @@
-name: Mirror from Hugging Face (safe)
+name: Mirror from Hugging Face (LFS-safe)
 
 on:
   workflow_dispatch: {}
@@ -18,6 +18,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Git LFS (skip download of binaries)
+        run: |
+          git lfs install --skip-smudge
+
       - name: Fetch from Hugging Face
         env:
           HF_TOKEN: ${{ secrets.MIRROR_TOKEN }}
@@ -28,26 +32,14 @@ jobs:
           git -c http.extraHeader="Authorization: Bearer $HF_TOKEN" \
             fetch hf main --prune --tags --force
 
-      - name: Checkout HF content into temp branch
+      - name: Checkout HF branch safely
         run: |
           git checkout -B hf_main hf/main
 
-      - name: Preserve GitHub workflows
+      - name: Sync to GitHub main
         run: |
-          git checkout origin/main -- .github/workflows || true
+          git checkout -B main hf_main
 
-      - name: Merge HF content safely
+      - name: Push to GitHub mirror
         run: |
-          rsync -a --delete \
-            --exclude='.git' \
-            --exclude='.github/workflows' \
-            ./ ./ 
-
-      - name: Commit changes (if any)
-        run: |
-          git add -A
-          git commit -m "sync from huggingface" || echo "No changes to commit"
-
-      - name: Push to GitHub (safe)
-        run: |
-          git push origin main
+          git push origin main --force
