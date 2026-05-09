@@ -1,4 +1,4 @@
-name: HF → GitHub Sync (stable)
+name: HF → GitHub Sync (stable no-rsync)
 
 on:
   workflow_dispatch: {}
@@ -21,27 +21,19 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Clone Hugging Face repo
+      - name: Clone Hugging Face repo (stable)
         env:
           HF_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           rm -rf hf_repo
           git clone https://oauth2:${HF_TOKEN}@huggingface.co/spaces/Youmei295/choice-matter-demo.git hf_repo
 
-      - name: Clean sync into workspace (safe copy)
+      - name: Sync files safely (NO rsync)
         run: |
-          rm -rf sync_tmp
-          mkdir sync_tmp
+          rm -rf ./*
+          rm -rf .github
 
-          rsync -a \
-            --exclude='.git' \
-            hf_repo/ sync_tmp/
-
-      - name: Replace repo content safely
-        run: |
-          rsync -a \
-            --delete \
-            sync_tmp/ ./
+          cp -r hf_repo/. .
 
       - name: Commit changes
         run: |
