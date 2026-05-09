@@ -20,7 +20,7 @@ jobs:
 
       - name: Fetch from Hugging Face space
         env:
-          HF_TOKEN: ${{ secrets.token }}
+          HF_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           # Add HF remote (do not echo HF_TOKEN). Use the canonical HF repo URL:
           git remote add hf https://huggingface.co/spaces/Youmei295/choice-matter-demo.git
