@@ -1,53 +1,48 @@
-name: Mirror from Hugging Face (NO LFS CLEAN)
+name: HF → GitHub Sync (Production)
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: '0 * * * *'
 
 permissions:
   contents: write
 
 jobs:
-  mirror:
+  sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout GitHub mirror repo
+      - name: Checkout GitHub repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install repo from Hugging Face
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone Hugging Face snapshot (NO LFS)
         env:
           HF_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
-          rm -rf repo
-          mkdir repo
-          cd repo
+          rm -rf hf_repo
 
-          git init
+          git clone \
+            https://oauth2:${HF_TOKEN}@huggingface.co/spaces/Youmei295/choice-matter-demo.git \
+            hf_repo
 
-          git remote add hf https://huggingface.co/spaces/Youmei295/choice-matter-demo.git
-
-          git -c http.extraHeader="Authorization: Bearer $HF_TOKEN" \
-            fetch hf main
-
-          git checkout -b main FETCH_HEAD
-
-      - name: REMOVE ALL LFS TRACKING
+      - name: Sync files into GitHub repo (safe copy)
         run: |
-          rm -f .gitattributes || true
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            hf_repo/ ./
 
-          git lfs uninstall || true
-
-          git lfs migrate export --include="*" || true
-
-      - name: Commit clean repo
+      - name: Commit changes
         run: |
           git add -A
-          git commit -m "clean mirror (no lfs)" || echo "no changes"
+          git commit -m "sync from huggingface" || echo "no changes"
 
       - name: Push to GitHub
         run: |
-          git push origin main --force
+          git push origin main
