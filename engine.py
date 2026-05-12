@@ -48,7 +48,7 @@ def handle_action(choice_text, game_state):
     elif action == "reset":
         game_state = initialize_state()
         next_scene_id = "001"
-    
+        
     # Update scene
     game_state["scene_id"] = next_scene_id
     next_scene = SCENES.get(next_scene_id, SCENES["001"])

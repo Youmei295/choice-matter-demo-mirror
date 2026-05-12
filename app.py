@@ -70,7 +70,7 @@ with gr.Blocks(css=custom_css, title="The Kepler Artifact - Sci-Fi Mystery", the
                     visible=True
                 )
             
-            gr.HTML("<div style='height: 20px;'></div>")
+            gr.HTML("<div style='height:20px;'></div>")
             
             # Restart button with icon
             restart_btn = gr.Button("↻ NEW GAME", variant="secondary")
@@ -79,20 +79,20 @@ with gr.Blocks(css=custom_css, title="The Kepler Artifact - Sci-Fi Mystery", the
     outputs = [story_text, scene_image, status_panel, choice_btn_1, choice_btn_2, choice_btn_3, game_state]
     
     choice_btn_1.click(
-        fn=lambda state: handle_action(choice_btn_1.value, state),
-        inputs=[game_state],
+        fn=handle_action,
+        inputs=[choice_btn_1, game_state],
         outputs=outputs
     )
     
     choice_btn_2.click(
-        fn=lambda state: handle_action(choice_btn_2.value, state),
-        inputs=[game_state],
+        fn=handle_action,
+        inputs=[choice_btn_2, game_state],
         outputs=outputs
     )
     
     choice_btn_3.click(
-        fn=lambda state: handle_action(choice_btn_3.value, state),
-        inputs=[game_state],
+        fn=handle_action,
+        inputs=[choice_btn_3, game_state],
         outputs=outputs
     )
     
@@ -103,4 +103,4 @@ with gr.Blocks(css=custom_css, title="The Kepler Artifact - Sci-Fi Mystery", the
     )
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch() 
